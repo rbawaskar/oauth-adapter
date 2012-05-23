@@ -107,6 +107,11 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     var webView = null;
     var receivePinCallback = null;
 
+    this.deleteAccesToken = function(pService){
+		var file = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, pService + '.config');
+		if (file.exists()) { file.deleteFile(); }
+	}
+
     this.loadAccessToken = function(pService)
     {
         Ti.API.debug('Loading access token for service [' + pService + '].');
