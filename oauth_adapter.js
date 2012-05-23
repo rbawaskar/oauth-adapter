@@ -64,17 +64,17 @@
  *
  * Save them locally in a lib subfolder
  */
-Ti.include('lib/sha1.js');
-Ti.include('lib/oauth.js');
+Ti.include('/js/lib/sha1.js');
+Ti.include('/js/lib/oauth.js');
 
 // create an OAuthAdapter instance
 var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
  {
 	
-	Ti.API.info('*********************************************');
-	Ti.API.info('If you like the OAuth Adapter, consider donating at');
-	Ti.API.info('https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T5HUU4J5EQTJU&lc=IT&item_name=OAuth%20Adapter&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_LG%2egif%3aNonHosted');
-	Ti.API.info('*********************************************');	
+	// Ti.API.info('*********************************************');
+	// Ti.API.info('If you like the OAuth Adapter, consider donating at');
+	// Ti.API.info('https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T5HUU4J5EQTJU&lc=IT&item_name=OAuth%20Adapter&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_LG%2egif%3aNonHosted');
+	// Ti.API.info('*********************************************');	
 
     // will hold the consumer secret and consumer key as provided by the caller
     var consumerSecret = pConsumerSecret;
@@ -120,6 +120,7 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
         if (file.exists == false) return;
 
         var contents = file.read();
+        log(contents);
         if (contents == null) return;
 
         try
@@ -138,6 +139,8 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     this.saveAccessToken = function(pService)
     {
         Ti.API.debug('Saving access token [' + pService + '].');
+        log('accessToken: '+accessToken);
+        log('accessToken: '+accessTokenSecret);
         var file = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, pService + '.config');
         if (file == null) file = Ti.Filesystem.createFile(Ti.Filesystem.applicationDataDirectory, pService + '.config');
         file.write(JSON.stringify(
@@ -209,14 +212,6 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
             webView.removeEventListener('load', authorizeUICallback);
 	        Ti.API.debug('destroyAuthorizeUI:window.close()');
             window.hide();
-			// 	        Ti.API.debug('destroyAuthorizeUI:window.remove(view)');
-			// window.remove(view);
-			// 	        Ti.API.debug('destroyAuthorizeUI:view.remove(webView)');
-			// 	        view.remove(webView);
-			// 	        Ti.API.debug('destroyAuthorizeUI:nullifying');
-			// 	        webView = null;
-			//             view = null;
-			//             window = null;
         }
         catch(ex)
         {
@@ -230,30 +225,12 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     {
         Ti.API.debug('authorizeUILoaded');
 
-        var xmlDocument = Ti.XML.parseString(e.source.html);
-        var nodeList = xmlDocument.getElementsByTagName('div');
-
-        for (var i = 0; i < nodeList.length; i++)
-        {
-            var node = nodeList.item(i);
-            var id = node.attributes.getNamedItem('id');
-            if (id && id.nodeValue == 'oauth_pin')
-            {
-                pin = node.text;
-
-                if (receivePinCallback) setTimeout(receivePinCallback, 100);
-
-                id = null;
-                node = null;
-
-                destroyAuthorizeUI();
-
-                break;
-            }
-        }
-
-        nodeList = null;
-        xmlDocument = null;
+        var pinSelector = "document.getElementsByTagName('code')[0].firstChild.data";
+		var pin = e.source.evalJS(pinSelector);
+		if (pin!=""){
+			if (receivePinCallback) setTimeout(receivePinCallback, 100);
+			destroyAuthorizeUI();
+		}
 
     };
 
@@ -262,53 +239,70 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     {
         receivePinCallback = pReceivePinCallback;
 
-        window = Ti.UI.createWindow({
-            modal: true,
-            fullscreen: true
-        });
-        var transform = Ti.UI.create2DMatrix().scale(0);
-        view = Ti.UI.createView({
-            top: 5,
-            width: 310,
-            height: 450,
-            border: 10,
-            backgroundColor: 'white',
-            borderColor: '#aaa',
-            borderRadius: 20,
-            borderWidth: 5,
-            zIndex: -1,
-            transform: transform
-        });
-        closeLabel = Ti.UI.createLabel({
-            textAlign: 'right',
-            font: {
-                fontWeight: 'bold',
-                fontSize: '12pt'
-            },
-            text: '(X)',
-            top: 10,
-            right: 12,
-            height: 14
-        });
-        window.open();
+        var t = Titanium.UI.create2DMatrix();
+		t = t.scale(0);
+		window = Titanium.UI.createWindow({
+			backgroundColor:'#336699',
+			borderWidth:8,
+			borderColor:'#999',
+			height:400,
+			width:300,
+			borderRadius:10,
+			opacity:0.92,
+			transform:t
+		});
 
-        webView = Ti.UI.createWebView({
-            url: pUrl,
+		// create first transform to go beyond normal size
+		var t1 = Titanium.UI.create2DMatrix();
+		t1 = t1.scale(1.1);
+		var a = Titanium.UI.createAnimation();
+		a.transform = t1;
+		a.duration = 200;
+
+		// when this animation completes, scale to normal size
+		a.addEventListener('complete', function(){
+			Titanium.API.info('here in complete');
+			var t2 = Titanium.UI.create2DMatrix();
+			t2 = t2.scale(1.0);
+			window.animate({transform:t2, duration:200});
+		});
+
+		window.open(a);
+
+		view = Ti.UI.createLabel({
+			text:'Sign with Twitter',
+			top: 3,	width: 300,	height: 30,
+			left:15,color:'#fff',
+			font: {
+				fontWeight: 'bold',
+				fontSize: '12pt'
+			},
+		});
+		window.add(view);
+		closeLabel = Ti.UI.createButton({
+			backgroundImage:'/images/close_but.png',
+			top: 10,
+			right: 12,
+			height: 20,
+			width:20,
+		});
+		closeLabel.addEventListener('click', destroyAuthorizeUI);
+		window.add(closeLabel);
+
+		webView = Ti.UI.createWebView({
+			url: pUrl,
+			top:30,
+			width: 300,
 			autoDetect:[Ti.UI.AUTODETECT_NONE]
-        });
-		Ti.API.debug('Setting:['+Ti.UI.AUTODETECT_NONE+']');
-        webView.addEventListener('load', authorizeUICallback);
-        view.add(webView);
+		});
+	
+		webView.addEventListener('load', authorizeUICallback);
+		window.add(webView);
 
-        closeLabel.addEventListener('click', destroyAuthorizeUI);
-        view.add(closeLabel);
-
-        window.add(view);
-
-        var animation = Ti.UI.createAnimation();
-        animation.transform = Ti.UI.create2DMatrix();
-        animation.duration = 500;
-        view.animate(animation);
+		var animation = Ti.UI.createAnimation();
+		animation.transform = Ti.UI.create2DMatrix();
+		animation.duration = 500;
+		view.animate(animation);
     };
 
     this.getAccessToken = function(pUrl)
